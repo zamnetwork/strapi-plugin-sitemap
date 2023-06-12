@@ -1,6 +1,6 @@
 {
   "name": "@zam/strapi-plugin-sitemap",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Generate a highly customizable sitemap XML in Strapi CMS.",
   "strapi": {
     "displayName": "Sitemap",
@@ -13,6 +13,9 @@
   "publishConfig": {
     "registry": "https://npm.k8s.zam.com/"
   },
+  "bin": {
+    "sitemap": "bin/sitemap"
+  },
   "scripts": {
     "eslint": "eslint --max-warnings=0 './**/*.{js,jsx}'",
     "eslint:fix": "eslint --fix './**/*.{js,jsx}'",
@@ -20,6 +23,7 @@
     "plugin:install": "yarn install && rm -rf node_modules/@strapi/helper-plugin"
   },
   "dependencies": {
+    "commander": "^10.0.1",
     "immutable": "^3.8.2",
     "redux-immutable": "^4.0.0",
     "redux-thunk": "^2.3.0",
@@ -39,6 +43,8 @@
     }
   ],
   "files": [
+    "bin",
+    "cli",
     "admin",
     "server",
     "public",

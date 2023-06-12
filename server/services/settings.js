@@ -1,5 +1,5 @@
 'use strict';
-
+const { pluginId } = require('../utils');
 const { Map } = require('immutable');
 
 /**
@@ -12,7 +12,7 @@ const createDefaultConfig = async () => {
   const pluginStore = strapi.store({
     environment: '',
     type: 'plugin',
-    name: 'sitemap',
+    name: pluginId,
   });
 
   const value = {
@@ -30,7 +30,7 @@ const createDefaultConfig = async () => {
     .store({
       environment: '',
       type: 'plugin',
-      name: 'sitemap',
+      name: pluginId,
     })
     .get({ key: 'settings' });
 };
@@ -41,7 +41,7 @@ module.exports = () => ({
       .store({
         environment: '',
         type: 'plugin',
-        name: 'sitemap',
+        name: pluginId,
       })
       .get({ key: 'settings' });
 

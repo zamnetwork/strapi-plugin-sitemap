@@ -1,11 +1,11 @@
 'use strict';
 
 const fs = require('fs');
-const { logMessage } = require('./utils');
+const { logMessage, pluginId } = require('./utils');
 const copyPublicFolder = require('./utils/copyPublicFolder');
 
 module.exports = async () => {
-  const sitemap = strapi.plugin('sitemap');
+  const sitemap = strapi.plugin(pluginId);
 
   try {
     // Load lifecycle methods for auto generation of sitemap.
@@ -28,13 +28,13 @@ module.exports = async () => {
         section: 'plugins',
         displayName: 'Access the plugin settings',
         uid: 'settings.read',
-        pluginName: 'sitemap',
+        pluginName: pluginId,
       },
       {
         section: 'plugins',
         displayName: 'Menu link to plugin settings',
         uid: 'menu-link',
-        pluginName: 'sitemap',
+        pluginName: pluginId,
       },
     ];
     await strapi.admin.services.permission.actionProvider.registerMany(actions);

@@ -1,6 +1,6 @@
 'use strict';
 
-const { getService } = require('../utils');
+const { getService, pluginId } = require('../utils');
 
 /**
  * Sitemap.js controller
@@ -23,7 +23,7 @@ module.exports = {
       .store({
         environment: '',
         type: 'plugin',
-        name: 'sitemap',
+        name: pluginId,
       })
       .set({ key: 'settings', value: ctx.request.body });
 

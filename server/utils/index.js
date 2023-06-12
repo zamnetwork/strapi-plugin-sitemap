@@ -1,11 +1,14 @@
 'use strict';
+const { strapi: { name } } = require('../../package.json');
+
+const pluginId =  name;
 
 const getCoreStore = () => {
-  return strapi.store({ type: 'plugin', name: 'sitemap' });
+  return strapi.store({ type: 'plugin', name: pluginId });
 };
 
 const getService = (name) => {
-  return strapi.plugin('sitemap').service(name);
+  return strapi.plugin(pluginId).service(name);
 };
 
 const logMessage = (msg = '') => `[strapi-plugin-sitemap]: ${msg}`;
@@ -32,4 +35,5 @@ module.exports = {
   getCoreStore,
   logMessage,
   noLimit,
+  pluginId,
 };
