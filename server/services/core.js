@@ -139,6 +139,8 @@ const createSitemapEntries = async () => {
   // Collection entries.
   await Promise.all(Object.keys(config.contentTypes).map(async (contentType) => {
     const excludeDrafts = config.excludeDrafts && strapi.contentTypes[contentType].options.draftAndPublish;
+    const fields = await getService('pattern').getAllowedFields(strapi.contentTypes[contentType]);
+    if (!fields.includes('localizations')) fields.push('localizations');
     const pages = await noLimit(strapi.query(contentType), {
       where: {
         $or: [
@@ -158,7 +160,7 @@ const createSitemapEntries = async () => {
         } : {},
       },
       orderBy: 'id',
-      populate: ['localizations'],
+      populate: fields,
     });
 
     // Add formatted sitemap page data to the array.
