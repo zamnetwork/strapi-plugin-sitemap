@@ -1,6 +1,7 @@
 'use strict';
-const { pluginId } = require('../utils');
+
 const { Map } = require('immutable');
+const { pluginId } = require('../utils');
 
 /**
  * Sitemap.js service

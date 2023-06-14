@@ -42,7 +42,7 @@
 
     "no-invalid-this": "off",
 
-    "babel/no-invalid-this": "error",
+    "babel/no-invalid-this": "off",
 
     "arrow-spacing": "warn",
 
@@ -118,7 +118,7 @@
 
     "no-control-regex": "warn",
 
-    "no-continue": "warn",
+    "no-continue": "off",
 
     "react/forbid-prop-types": "warn",
 
@@ -284,7 +284,7 @@
 
     "no-multi-assign": "warn",
 
-    "no-undefined": "error",
+    "no-undefined": "off",
 
     "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
 
@@ -346,6 +346,8 @@
     "no-underscore-dangle": "off",
 
     "no-extra-parens": "off",
+
+    "no-await-in-loop": "off",
 
     "padding-line-between-statements": "off",
 

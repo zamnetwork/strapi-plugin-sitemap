@@ -1,260 +1,268 @@
 'use strict';
 
-/**
- * Sitemap service.
- */
+const { createReadStream } = require('fs');
+const { chunk } = require('lodash');
+const { SitemapIndexStream, SitemapStream, parseSitemap, streamToPromise } = require('sitemap');
+const { pluginId, getService, buildChunkName, delay, cleanUrl } = require('../utils');
+const constants = require('../utils/constants');
 
-const { SitemapStream, streamToPromise } = require('sitemap');
-const { isEmpty } = require('lodash');
-const fs = require('fs');
-const { logMessage, getService, noLimit } = require('../utils');
-
-/**
- * Get a formatted array of different language URLs of a single page.
- *
- * @param {object} page - The entity.
- * @param {string} contentType - The model of the entity.
- * @param {string} defaultURL - The default URL of the different languages.
- * @param {bool} excludeDrafts - whether to exclude drafts.
- *
- * @returns {array} The language links.
- */
-const getLanguageLinks = async (page, contentType, defaultURL, excludeDrafts) => {
-  const config = await getService('settings').getConfig();
-  if (!page.localizations) return null;
-
-  const links = [];
-  links.push({ lang: page.locale, url: defaultURL });
-
-  await Promise.all(page.localizations.map(async (translation) => {
-    const translationEntity = await strapi.query(contentType).findOne({
-      where: {
-        $or: [
-          {
-            sitemap_exclude: {
-              $null: true,
-            },
-          },
-          {
-            sitemap_exclude: {
-              $eq: false,
-            },
-          },
-        ],
-        id: translation.id,
-        published_at: excludeDrafts ? {
-          $notNull: true,
-        } : {},
-      },
-      orderBy: 'id',
-      populate: ['localizations'],
+async function generateIndex({ xslUrl, hostname }) {
+  const { sitemapIndex } = constants;
+  const s3Content = await getContentTypesInS3();
+  const sis = new SitemapIndexStream({
+    hostname,
+    xslUrl,
+  });
+  const files = Object.keys(s3Content);
+  const sitemaps = [];
+  for (let x = 0; x < files.length; x += 1) {
+    const name = files[x];
+    if (name === sitemapIndex) continue;
+    const lastmod = s3Content[name];
+    const key = strapi.plugin(pluginId).service('s3').buildKey(name);
+    const url = strapi.plugin(pluginId).service('s3').getUrl(key);
+    sitemaps.push({
+      url,
+      lastmod,
     });
-
-    if (!translationEntity) return null;
-
-    let { locale } = translationEntity;
-
-    // Return when there is no pattern for the page.
-    if (
-      !config.contentTypes[contentType]['languages'][locale]
-      && config.contentTypes[contentType]['languages']['und']
-    ) {
-      locale = 'und';
-    } else if (
-      !config.contentTypes[contentType]['languages'][locale]
-      && !config.contentTypes[contentType]['languages']['und']
-    ) {
-      return null;
-    }
-
-    const { pattern } = config.contentTypes[contentType]['languages'][locale];
-    const translationUrl = await strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, translationEntity);
-    let hostnameOverride = config.hostname_overrides[translationEntity.locale] || '';
-    hostnameOverride = hostnameOverride.replace(/\/+$/, "");
-    links.push({
-      lang: translationEntity.locale,
-      url: `${hostnameOverride}${translationUrl}`,
-    });
-  }));
-
-  return links;
-};
-
-/**
- * Get a formatted sitemap entry object for a single page.
- *
- * @param {object} page - The entity.
- * @param {string} contentType - The model of the entity.
- * @param {bool} excludeDrafts - Whether to exclude drafts.
- *
- * @returns {object} The sitemap entry data.
- */
-const getSitemapPageData = async (page, contentType, excludeDrafts) => {
-  let locale = page.locale || 'und';
-  const config = await getService('settings').getConfig();
-
-  // Return when there is no pattern for the page.
-  if (
-    !config.contentTypes[contentType]['languages'][locale]
-    && config.contentTypes[contentType]['languages']['und']
-  ) {
-    locale = 'und';
-  } else if (
-    !config.contentTypes[contentType]['languages'][locale]
-    && !config.contentTypes[contentType]['languages']['und']
-  ) {
-    return null;
   }
+  sitemaps.map((entry) => sis.write(entry));
+  sis.end();
+  const data = await streamToPromise(sis);
+  const key = strapi.plugin(pluginId).service('s3').buildKey(sitemapIndex);
+  const location = await strapi.plugin(pluginId).service('s3').upload(data, key);
+  console.log(`Uploaded sitemap index to ${location}`);
+}
 
-  const { pattern } = config.contentTypes[contentType]['languages'][locale];
-  const path = await strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, page);
-  let hostnameOverride = config.hostname_overrides[page.locale] || '';
-  hostnameOverride = hostnameOverride.replace(/\/+$/, "");
-  const url = `${hostnameOverride}${path}`;
+async function getContentTypesInS3() {
+  const content = await strapi.plugin(pluginId).service('s3').listObjects();
+  const { Contents } = content;
+  const xmls = {};
+  if (Contents && Contents.length) {
+    const { providerOptions: { params: { Key }} } = strapi.config.get('plugin.upload');
+    const splitAt = `${Key}/${pluginId}/`;
+    Contents.forEach((Content) => {
+      const { Key: key, LastModified: lastModified } = Content;
+      const splitz = key.split(splitAt);
+      const xml = splitz[splitz.length - 1];
+      xmls[xml] = lastModified.toISOString();
+    });
+  }
+  return xmls;
+}
 
-  const pageData = {
-    lastmod: page.updatedAt,
-    url: url,
-    links: await getLanguageLinks(page, contentType, url, excludeDrafts),
-    changefreq: config.contentTypes[contentType]['languages'][locale].changefreq || 'monthly',
-    priority: parseFloat(config.contentTypes[contentType]['languages'][locale].priority) || 0.5,
+async function generateContentType({ xslUrl, hostname, contentType, pattern, counter, filters, limit }) {
+  const { collectionName } = strapi.contentTypes[contentType];
+  const { fields, populate } = constants[contentType];
+  const { ext } = constants;
+  const start = counter * limit;
+  const sort = {
+    id: 'ASC',
   };
+  const entities = await strapi.entityService.findMany(contentType, {
+    filters,
+    fields,
+    populate,
+    limit,
+    start,
+    sort,
+  });
+  const entries = [];
+  entities.forEach((entity) => {
+    const { updatedAt: lastmod } = entity;
+    const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
+    let url = `${hostname}${path}`;
+    url = cleanUrl(url);
+    entries.push({
+      url,
+      lastmod,
+    });
+  });
+  const ss = new SitemapStream({
+    hostname,
+    xslUrl,
+  });
+  entries.map((entry) => ss.write(entry));
+  ss.end();
+  const data = await streamToPromise(ss);
+  let chunkName = '';
+  if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
+  else chunkName = buildChunkName(collectionName, ext);
+  const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
+  const location = await strapi.plugin(pluginId).service('s3').upload(data, key);
+  console.log(`Uploaded sitemap index to ${location}`);
+  return chunkName;
+}
 
-  if (config.contentTypes[contentType]['languages'][locale].includeLastmod === false) {
-    delete pageData.lastmod;
+async function poll(toPoll) {
+  console.log('Polling to check if files have been updated in S3');
+  let filesToMonitor = Object.keys(toPoll);
+  while (filesToMonitor.length) {
+    console.log(`Current number of files to monitor: ${filesToMonitor.length}`);
+    const s3Content = await getContentTypesInS3();
+    const cleanupIndices = [];
+    for (let x = 0; x < filesToMonitor.length; x += 1) {
+      const key = filesToMonitor[x];
+      if (s3Content[key] !== toPoll[key]) cleanupIndices.push(x);
+    }
+    filesToMonitor = filesToMonitor.filter((value, index) => {
+      return cleanupIndices.indexOf(index) === -1;
+    });
+    await delay(1000);
   }
+  return true;
+}
 
-  return pageData;
-};
-
-/**
- * Get array of sitemap entries based on the plugins configurations.
- *
- * @returns {array} The entries.
- */
-const createSitemapEntries = async () => {
+async function generateContentTypes(xsl, contentTypes, limit = 1000) {
   const config = await getService('settings').getConfig();
-  const sitemapEntries = [];
-
-  // Collection entries.
-  await Promise.all(Object.keys(config.contentTypes).map(async (contentType) => {
-    const excludeDrafts = config.excludeDrafts && strapi.contentTypes[contentType].options.draftAndPublish;
-    const fields = await getService('pattern').getAllowedFields(strapi.contentTypes[contentType]);
-    if (!fields.includes('localizations')) fields.push('localizations');
-    const pages = await noLimit(strapi.query(contentType), {
-      where: {
-        $or: [
-          {
-            sitemap_exclude: {
-              $null: true,
-            },
-          },
-          {
-            sitemap_exclude: {
-              $eq: false,
-            },
-          },
-        ],
-        published_at: excludeDrafts ? {
-          $notNull: true,
-        } : {},
-      },
-      orderBy: 'id',
-      populate: fields,
-    });
-
-    // Add formatted sitemap page data to the array.
-    await Promise.all(pages.map(async (page) => {
-      const pageData = await getSitemapPageData(page, contentType, excludeDrafts);
-      if (pageData) sitemapEntries.push(pageData);
-    }));
-  }));
-
-  // Custom entries.
-  await Promise.all(Object.keys(config.customEntries).map(async (customEntry) => {
-    sitemapEntries.push({
-      url: customEntry,
-      changefreq: config.customEntries[customEntry].changefreq,
-      priority: parseFloat(config.customEntries[customEntry].priority),
-    });
-  }));
-
-  // Custom homepage entry.
-  if (config.includeHomepage) {
-    const hasHomePage = !isEmpty(sitemapEntries.filter((entry) => entry.url === ''));
-
-    // Only add it when no other '/' entry is present.
-    if (!hasHomePage) {
-      sitemapEntries.push({
-        url: '/',
-        changefreq: 'monthly',
-        priority: 1,
-      });
+  const { hostname } = config;
+  const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
+  const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
+  const contentTypeNames = Object.keys(contentTypes);
+  const { where: filters } = constants;
+  const s3Content = await getContentTypesInS3();
+  const toPoll = {};
+  for (let x = 0; x < contentTypeNames.length; x += 1) {
+    const contentType = contentTypeNames[x];
+    const { pattern } = config.contentTypes[contentType]['languages']['und'];
+    const count = await strapi.query(contentType).count({ where: filters });
+    for (let counter = 0; counter < (count / limit); counter++) {
+      const chunkName = await generateContentType({ xslUrl, hostname, contentType, pattern, counter, filters, limit });
+      toPoll[chunkName] = s3Content[chunkName] || null;
     }
   }
+  const generationComplete = await poll(toPoll);
+  if (generationComplete) await generateIndex({ xslUrl, hostname });
+}
 
-  return sitemapEntries;
-};
+async function pollAndGenerateIndex(data) {
+  const { toPoll, xslUrl, hostname } = data;
+  const generationComplete = await poll(toPoll);
+  if (generationComplete) await generateIndex({ xslUrl, hostname });
+}
 
-/**
- * Write the sitemap xml file in the public folder.
- *
- * @param {string} filename - The file name.
- * @param {SitemapStream} sitemap - The SitemapStream instance.
- *
- * @returns {void}
- */
-const writeSitemapFile = (filename, sitemap) => {
-  streamToPromise(sitemap)
-    .then((sm) => {
-      fs.writeFile(`public/sitemap/${filename}`, sm.toString(), (err) => {
-        if (err) {
-          strapi.log.error(logMessage(`Something went wrong while trying to write the sitemap XML file to your public folder. ${err}`));
-          throw new Error();
-        } else {
-          strapi.log.info(logMessage(`The sitemap XML has been generated. It can be accessed on /sitemap/index.xml.`));
-        }
-      });
-    })
-    .catch((err) => {
-      strapi.log.error(logMessage(`Something went wrong while trying to build the sitemap with streamToPromise. ${err}`));
-      throw new Error();
-    });
-};
+async function enqueueContentTypes(xsl, contentTypes, limit = 1000) {
+  const config = await getService('settings').getConfig();
+  const { hostname } = config;
+  const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
+  const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
+  const contentTypeNames = Object.keys(contentTypes);
+  const { where: filters, ext } = constants;
+  let data = [];
+  const s3Content = await getContentTypesInS3();
+  const toPoll = {};
+  for (let x = 0; x < contentTypeNames.length; x += 1) {
+    const contentType = contentTypeNames[x];
+    const { pattern } = config.contentTypes[contentType]['languages']['und'];
+    const count = await strapi.query(contentType).count({ where: filters });
+    const { collectionName } = strapi.contentTypes[contentType];
+    for (let counter = 0; counter < (count / limit); counter++) {
+      let chunkName = '';
+      if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
+      else chunkName = buildChunkName(collectionName, ext);
+      data.push({ xslUrl, hostname, contentType, pattern, counter, filters, limit });
+      toPoll[chunkName] = s3Content[chunkName] || null;
+    }
+  }
+  const service = 'sitemap';
+  let func = 'generateContentType';
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+  data = [
+    {
+      toPoll,
+      hostname,
+      xslUrl,
+    },
+  ];
+  func = 'pollAndGenerateIndex';
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+}
 
-/**
- * The main sitemap generation service.
- *
- * @returns {void}
- */
-const createSitemap = async () => {
-  try {
+async function getS3LocationForId(id, contentType, limit) {
+  const { where: filters, ext } = constants;
+  const fields = 'id';
+  const sort = {
+    id: 'ASC',
+  };
+  const entities = await strapi.entityService.findMany(contentType, {
+    filters,
+    fields,
+    sort,
+  });
+  const ids = [];
+  entities.forEach((entity) => ids.push(entity.id));
+  const chunks = chunk(ids, limit);
+  let counter = null;
+  for (let x = 0; x < chunks.length; x += 1) {
+    if (chunks[x].includes(id)) {
+      counter = x;
+      break;
+    }
+  }
+  let location = '';
+  let chunkName = '';
+  if (counter !== null) {
+    const { collectionName } = strapi.contentTypes[contentType];
+    if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
+    else chunkName = buildChunkName(collectionName, ext);
+    const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
+    location = strapi.plugin(pluginId).service('s3').getLocation(key);
+  }
+  return { location, chunkName };
+}
+
+async function validateXMLContainsId(id, contentType, location, chunkName) {
+  let valid = false;
+  const config = await getService('settings').getConfig();
+  const { fields, populate } = constants[contentType];
+  const entity = await strapi.entityService.findOne(contentType, id, {
+    fields,
+    populate,
+  });
+  const { hostname } = config;
+  const { pattern } = config.contentTypes[contentType]['languages']['und'];
+  const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
+  let url = `${hostname}${path}`;
+  url = cleanUrl(url);
+  const filepath = `/tmp/${chunkName}`;
+  await strapi.plugin(pluginId).service('s3').download(location, filepath);
+  const entries = await parseSitemap(createReadStream(filepath));
+  for (let x = 0; x < entries.length; x += 1) {
+    const entry = entries[x];
+    if (entry.url === url) {
+      valid = true;
+      entry.lastmod = entity.updatedAt;
+    }
+  }
+  if (valid) return entries;
+}
+
+async function generateContentTypeOnUpdate(id, contentType, xsl, limit) {
+  const { location, chunkName } = await getS3LocationForId(id, contentType, limit);
+  const entries = await validateXMLContainsId(id, contentType, location, chunkName);
+  if (entries) {
     const config = await getService('settings').getConfig();
-    const sitemap = new SitemapStream({
-      hostname: config.hostname,
-      xslUrl: "xsl/sitemap.xsl",
+    const { hostname } = config;
+    const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
+    const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
+    const ss = new SitemapStream({
+      hostname,
+      xslUrl,
     });
-
-    const sitemapEntries = await createSitemapEntries();
-    if (isEmpty(sitemapEntries)) {
-      strapi.log.info(logMessage(`No sitemap XML was generated because there were 0 URLs configured.`));
-      return;
-    }
-
-    sitemapEntries.map((sitemapEntry) => sitemap.write(sitemapEntry));
-    sitemap.end();
-
-    writeSitemapFile('index.xml', sitemap);
-  } catch (err) {
-    strapi.log.error(logMessage(`Something went wrong while trying to build the SitemapStream. ${err}`));
-    throw new Error();
+    entries.map((entry) => ss.write(entry));
+    ss.end();
+    const data = await streamToPromise(ss);
+    const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
+    await strapi.plugin(pluginId).service('s3').upload(data, key);
+    await generateIndex({ xslUrl, hostname });
   }
-};
+}
 
 module.exports = () => ({
-  getLanguageLinks,
-  getSitemapPageData,
-  createSitemapEntries,
-  writeSitemapFile,
-  createSitemap,
+  generateIndex,
+  generateContentType,
+  enqueueContentTypes,
+  generateContentTypes,
+  pollAndGenerateIndex,
+  generateContentTypeOnUpdate,
 });

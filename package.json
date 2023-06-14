@@ -14,7 +14,8 @@
     "registry": "https://npm.k8s.zam.com/"
   },
   "bin": {
-    "sitemap": "bin/sitemap"
+    "sitemap": "bin/sitemap",
+    "sitemap-generate": "bin/sitemap-generate"
   },
   "scripts": {
     "eslint": "eslint --max-warnings=0 './**/*.{js,jsx}'",
@@ -23,6 +24,8 @@
     "plugin:install": "yarn install && rm -rf node_modules/@strapi/helper-plugin"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.350.0",
+    "axios": "^1.4.0",
     "commander": "^10.0.1",
     "immutable": "^3.8.2",
     "redux-immutable": "^4.0.0",
@@ -58,6 +61,7 @@
     "@strapi/design-system": "^1.4.1",
     "@strapi/helper-plugin": "^4.5.5",
     "@strapi/icons": "^1.4.1",
+    "@strapi/strapi": "^4.10.8",
     "@strapi/utils": "^4.5.5",
     "babel-eslint": "9.0.0",
     "eslint": "^7.32.0",

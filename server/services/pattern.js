@@ -51,7 +51,7 @@ const getFieldsFromPattern = (pattern) => {
  *
  * @returns {string} The path.
  */
-const resolvePattern = async (pattern, entity) => {
+const resolvePattern = (pattern, entity) => {
   const fields = getFieldsFromPattern(pattern);
 
   fields.map((field) => {
@@ -102,7 +102,7 @@ const validatePattern = async (pattern, allowedFieldNames) => {
   getFieldsFromPattern(pattern).map((field) => {
     if (field.includes('.')) {
       field.split('.').map((part) => {
-        if (isNaN(part) && !allowedFieldNames.includes(part)) fieldsAreAllowed = false;
+        if (Number.isNaN(part) && !allowedFieldNames.includes(part)) fieldsAreAllowed = false;
       });
     } else if (!allowedFieldNames.includes(field)) fieldsAreAllowed = false;
   });
