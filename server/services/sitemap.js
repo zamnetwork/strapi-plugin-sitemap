@@ -6,6 +6,17 @@ const { SitemapIndexStream, SitemapStream, parseSitemap, streamToPromise } = req
 const { pluginId, getService, buildChunkName, delay, cleanUrl } = require('../utils');
 const constants = require('../utils/constants');
 
+async function entriesToSitemapStream(entries, hostname, xslUrl) {
+  const ss = new SitemapStream({
+    hostname,
+    xslUrl,
+  });
+  entries.map((entry) => ss.write(entry));
+  ss.end();
+  const data = await streamToPromise(ss);
+  return data;
+}
+
 async function generateIndex({ xslUrl, hostname }) {
   const { sitemapIndex } = constants;
   const s3Content = await getContentTypesInS3();
@@ -78,13 +89,7 @@ async function generateContentType({ xslUrl, hostname, contentType, pattern, cou
       lastmod,
     });
   });
-  const ss = new SitemapStream({
-    hostname,
-    xslUrl,
-  });
-  entries.map((entry) => ss.write(entry));
-  ss.end();
-  const data = await streamToPromise(ss);
+  const data = await entriesToSitemapStream(entries, hostname, xslUrl);
   let chunkName = '';
   if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
   else chunkName = buildChunkName(collectionName, ext);
@@ -237,7 +242,7 @@ async function validateXMLContainsId(id, contentType, location, chunkName) {
   if (valid) return entries;
 }
 
-async function generateContentTypeOnUpdate(id, contentType, xsl, limit) {
+async function generateContentTypeOnUpdate({ id, contentType, xsl, limit }) {
   const { location, chunkName } = await getS3LocationForId(id, contentType, limit);
   const entries = await validateXMLContainsId(id, contentType, location, chunkName);
   if (entries) {
@@ -245,24 +250,106 @@ async function generateContentTypeOnUpdate(id, contentType, xsl, limit) {
     const { hostname } = config;
     const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
     const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
-    const ss = new SitemapStream({
-      hostname,
-      xslUrl,
-    });
-    entries.map((entry) => ss.write(entry));
-    ss.end();
-    const data = await streamToPromise(ss);
+    const data = await entriesToSitemapStream(entries, hostname, xslUrl);
     const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
     await strapi.plugin(pluginId).service('s3').upload(data, key);
     await generateIndex({ xslUrl, hostname });
   }
 }
 
+async function getS3LocationForLast(contentType, limit) {
+  const { where: filters, ext } = constants;
+  const count = await strapi.query(contentType).count({ where: filters });
+  let counter = null;
+  if (count < limit) counter = 0;
+  else counter = parseInt(count / limit);
+  let chunkName = '';
+  const { collectionName } = strapi.contentTypes[contentType];
+  if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
+  else chunkName = buildChunkName(collectionName, ext);
+  const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
+  const location = strapi.plugin(pluginId).service('s3').getLocation(key);
+  return { location, chunkName, key };
+}
+
+async function appendXML(id, contentType, location, chunkName) {
+  const entity = await getEntityForXML(id, contentType);
+  const filepath = `/tmp/${chunkName}`;
+  await strapi.plugin(pluginId).service('s3').download(location, filepath);
+  const entries = await parseSitemap(createReadStream(filepath));
+  entries.push(entity);
+  return entries;
+}
+
+async function getEntityForXML(id, contentType) {
+  const config = await getService('settings').getConfig();
+  const { fields, populate } = constants[contentType];
+  const entity = await strapi.entityService.findOne(contentType, id, {
+    fields,
+    populate,
+  });
+  const { hostname } = config;
+  const { pattern } = config.contentTypes[contentType]['languages']['und'];
+  const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
+  let url = `${hostname}${path}`;
+  url = cleanUrl(url);
+  return {
+    url,
+    lastmod: entity.updatedAt,
+  };
+}
+
+async function generateContentTypeOnCreation({ id, contentType, xsl, limit }) {
+  const { location, chunkName, key } = await getS3LocationForLast(contentType, limit);
+  const exists = await strapi.plugin(pluginId).service('s3').exists(key);
+  const config = await getService('settings').getConfig();
+  const { hostname } = config;
+  const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
+  const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
+  let entries = [];
+  if (exists) {
+    entries = await appendXML(id, contentType, location, chunkName);
+  } else {
+    const entity = await getEntityForXML(id, contentType);
+    entries = [entity];
+  }
+  const data = await entriesToSitemapStream(entries, hostname, xslUrl);
+  await strapi.plugin(pluginId).service('s3').upload(data, key);
+  await generateIndex({ xslUrl, hostname });
+}
+
+async function enqueueUpdateContentType(id, contentType, xsl, limit) {
+  const data = [{
+    id,
+    contentType,
+    xsl,
+    limit,
+  }];
+  const service = 'sitemap';
+  const func = 'generateContentTypeOnUpdate';
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+}
+
+async function enqueueAddEntity(id, contentType, xsl, limit) {
+  const data = [{
+    id,
+    contentType,
+    xsl,
+    limit,
+  }];
+  const service = 'sitemap';
+  const func = 'generateContentTypeOnCreation';
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+}
+
 module.exports = () => ({
   generateIndex,
+  enqueueAddEntity,
   generateContentType,
   enqueueContentTypes,
   generateContentTypes,
   pollAndGenerateIndex,
+  enqueueUpdateContentType,
   generateContentTypeOnUpdate,
+  generateContentTypeOnCreation,
 });

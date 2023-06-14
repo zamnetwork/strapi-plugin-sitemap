@@ -3,7 +3,7 @@ const path = require('path');
 const Strapi = require('@strapi/strapi');
 const { Command, Option, InvalidArgumentError } = require('commander');
 const { getConfigContentTypes } = require('../server/utils');
-const { update, contentTypes } = require('./generate');
+const { add, update, contentTypes } = require('./generate');
 const { version } = require('../package.json');
 
 function myParseInt(value, dummyPrevious) {
@@ -42,12 +42,20 @@ function myParseInt(value, dummyPrevious) {
     .action(contentTypes);
 
   program.command('update')
-    .description('Update sitemaps for a single entity')
-    .requiredOption('-i, --id <number>', 'Update sitemap for a single entity', myParseInt)
+    .description('Update a single entity in sitemap')
+    .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
     .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
     .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
     .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
     .action(update);
+
+  program.command('add')
+    .description('Add a single entity to sitemap')
+    .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
+    .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
+    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
+    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
+    .action(add);
 
   await program.parseAsync();
   strapi.stop(0);

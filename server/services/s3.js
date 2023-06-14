@@ -4,7 +4,7 @@ const axios = require('axios');
 const stream = require('stream');
 const { promisify } = require('util');
 const { createWriteStream } = require('fs');
-const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, ListObjectsV2Command, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const { pluginId } = require('../utils');
 
 function buildKey(path) {
@@ -56,6 +56,7 @@ async function upload(Body, Key) {
 
 async function listObjects() {
   const { providerOptions: { params: { Bucket, Key }, credentials, region } } = strapi.config.get('plugin.upload');
+  console.log(`Listing Bucket ${Bucket}`);
   const client = new S3Client({ credentials, region });
   const listParams = {
     Bucket,
@@ -68,7 +69,22 @@ async function listObjects() {
   return resp;
 }
 
+async function exists(key) {
+  console.log(`Checking if ${key} exists in S3`);
+  const { providerOptions: { params: { Bucket }, credentials, region } } = strapi.config.get('plugin.upload');
+  const client = new S3Client({ credentials, region });
+  const params = {
+    Bucket,
+    Key: key,
+  };
+  const command = new HeadObjectCommand(params);
+  await client.send(command)
+    .catch((e) => { return false; });
+  return true;
+}
+
 module.exports = () => ({
+  exists,
   upload,
   download,
   buildKey,
