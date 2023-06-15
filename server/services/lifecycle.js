@@ -9,35 +9,37 @@ const { getService, logMessage } = require('../utils');
  */
 
 const subscribeLifecycleMethods = async (modelName) => {
-  const sitemapService = await getService('core');
+  const sitemapService = await getService('sitemap');
 
   if (strapi.contentTypes[modelName]) {
     await strapi.db.lifecycles.subscribe({
       models: [modelName],
 
-      async afterCreate(event) {
-        await sitemapService.createSitemap();
-      },
-
-      async afterCreateMany(event) {
-        await sitemapService.createSitemap();
-      },
-
       async afterUpdate(event) {
-        await sitemapService.createSitemap();
+        const {
+          result: {
+            id,
+            sitemap_exclude: sitemapExclude,
+            publishedAt,
+          },
+          model: {
+            uid: contentType,
+          },
+        } = event;
+        if (!sitemapExclude && publishedAt) {
+          const limit = 1000;
+          const xsl = 'xsl/sitemap.xsl';
+          sitemapService.enqueueUpdateContentType(id, contentType, xsl, limit);
+        }
       },
 
-      async afterUpdateMany(event) {
-        await sitemapService.createSitemap();
-      },
+      // async afterDelete(event) {
+      //   await sitemapService.createSitemap();
+      // },
 
-      async afterDelete(event) {
-        await sitemapService.createSitemap();
-      },
-
-      async afterDeleteMany(event) {
-        await sitemapService.createSitemap();
-      },
+      // async afterDeleteMany(event) {
+      //   await sitemapService.createSitemap();
+      // },
     });
   } else {
     strapi.log.error(logMessage(`Could not load lifecycles on model '${modelName}'`));

@@ -212,7 +212,7 @@ async function getS3LocationForId(id, contentType, limit) {
     else chunkName = buildChunkName(collectionName, ext);
     const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
     location = strapi.plugin(pluginId).service('s3').getLocation(key);
-  }
+  } else console.error('Could not find id in entities');
   return { location, chunkName };
 }
 
@@ -244,6 +244,7 @@ async function validateXMLContainsId(id, contentType, location, chunkName) {
 
 async function generateContentTypeOnUpdate({ id, contentType, xsl, limit }) {
   const { location, chunkName } = await getS3LocationForId(id, contentType, limit);
+  if (!location) throw new Error('Could not find xml location');
   const entries = await validateXMLContainsId(id, contentType, location, chunkName);
   if (entries) {
     const config = await getService('settings').getConfig();
@@ -254,7 +255,11 @@ async function generateContentTypeOnUpdate({ id, contentType, xsl, limit }) {
     const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
     await strapi.plugin(pluginId).service('s3').upload(data, key);
     await generateIndex({ xslUrl, hostname });
-  }
+  } else await generateContentTypeOnCreation({ id, contentType, xsl, limit });
+  // if no entries that means entry does not exist in the expected xml file
+  // which means that this entity was just published
+  // publish event can only occur after the entity has been saved
+  // which means it gets triggered on entity update and not on entity creation
 }
 
 async function getS3LocationForLast(contentType, limit) {
