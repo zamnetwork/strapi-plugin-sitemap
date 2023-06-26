@@ -124,15 +124,15 @@ async function generateContentTypes(xsl, contentTypes, limit = 1000) {
   const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
   const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
   const contentTypeNames = Object.keys(contentTypes);
-  const { where: filters } = constants;
   const s3Content = await getContentTypesInS3();
   const toPoll = {};
   for (let x = 0; x < contentTypeNames.length; x += 1) {
     const contentType = contentTypeNames[x];
+    const { where } = constants[contentType];
     const { pattern } = config.contentTypes[contentType]['languages']['und'];
-    const count = await strapi.query(contentType).count({ where: filters });
+    const count = await strapi.query(contentType).count({ where });
     for (let counter = 0; counter < (count / limit); counter++) {
-      const chunkName = await generateContentType({ xslUrl, hostname, contentType, pattern, counter, filters, limit });
+      const chunkName = await generateContentType({ xslUrl, hostname, contentType, pattern, counter, filters: where, limit });
       toPoll[chunkName] = s3Content[chunkName] || null;
     }
   }
@@ -152,20 +152,21 @@ async function enqueueContentTypes(xsl, contentTypes, limit = 1000) {
   const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
   const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
   const contentTypeNames = Object.keys(contentTypes);
-  const { where: filters, ext } = constants;
+  const { ext } = constants;
   let data = [];
   const s3Content = await getContentTypesInS3();
   const toPoll = {};
   for (let x = 0; x < contentTypeNames.length; x += 1) {
     const contentType = contentTypeNames[x];
+    const { where } = constants[contentType];
     const { pattern } = config.contentTypes[contentType]['languages']['und'];
-    const count = await strapi.query(contentType).count({ where: filters });
+    const count = await strapi.query(contentType).count({ where });
     const { collectionName } = strapi.contentTypes[contentType];
     for (let counter = 0; counter < (count / limit); counter++) {
       let chunkName = '';
       if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
       else chunkName = buildChunkName(collectionName, ext);
-      data.push({ xslUrl, hostname, contentType, pattern, counter, filters, limit });
+      data.push({ xslUrl, hostname, contentType, pattern, counter, filters: where, limit });
       toPoll[chunkName] = s3Content[chunkName] || null;
     }
   }
@@ -184,7 +185,8 @@ async function enqueueContentTypes(xsl, contentTypes, limit = 1000) {
 }
 
 async function getS3LocationForId(id, contentType, limit) {
-  const { where: filters, ext } = constants;
+  const { ext } = constants;
+  const { where: filters } = constants[contentType];
   const fields = 'id';
   const sort = {
     id: 'ASC',
@@ -263,8 +265,9 @@ async function generateContentTypeOnUpdate({ id, contentType, xsl, limit }) {
 }
 
 async function getS3LocationForLast(contentType, limit) {
-  const { where: filters, ext } = constants;
-  const count = await strapi.query(contentType).count({ where: filters });
+  const { ext } = constants;
+  const { where } = constants[contentType];
+  const count = await strapi.query(contentType).count({ where });
   let counter = null;
   if (count < limit) counter = 0;
   else counter = parseInt(count / limit);
