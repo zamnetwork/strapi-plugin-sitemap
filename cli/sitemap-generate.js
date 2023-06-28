@@ -35,9 +35,7 @@ function myParseInt(value, dummyPrevious) {
 
   program.command('content-types')
     .description('Generate sitemaps for content types')
-    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
     .addOption(new Option('-a, --all', 'Generate for all content types'))
-    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
     .addOption(new Option('-t, --types <string...>', 'Content type(s) to generate').choices(choices))
     .action(contentTypes);
 
@@ -53,8 +51,6 @@ function myParseInt(value, dummyPrevious) {
     .description('Add a single entity to sitemap')
     .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
     .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
-    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
-    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
     .action(add);
 
   await program.parseAsync();

@@ -39,7 +39,7 @@ const getAllowedFields = async (contentType) => {
  */
 const getFieldsFromPattern = (pattern) => {
   let fields = pattern.match(/[[\w\d\\.]+]/g); // Get all substrings between [] as array.
-  fields = fields.map((field) => RegExp(/(?<=\[)(.*?)(?=\])/).exec(field)[0]); // Strip [] from string.
+  if (fields) fields = fields.map((field) => RegExp(/(?<=\[)(.*?)(?=\])/).exec(field)[0]); // Strip [] from string.
   return fields;
 };
 
@@ -53,13 +53,14 @@ const getFieldsFromPattern = (pattern) => {
  */
 const resolvePattern = (pattern, entity) => {
   const fields = getFieldsFromPattern(pattern);
+  if (fields) {
+    fields.map((field) => {
+      pattern = pattern.replace(`[${field}]`, get(entity, field, ''));
+    });
 
-  fields.map((field) => {
-    pattern = pattern.replace(`[${field}]`, get(entity, field, ''));
-  });
-
-  pattern = pattern.replace(/([^:]\/)\/+/g, "$1"); // Remove duplicate forward slashes.
-  pattern = pattern.startsWith('/') ? pattern : `/${pattern}`; // Add a starting slash.
+    pattern = pattern.replace(/([^:]\/)\/+/g, "$1"); // Remove duplicate forward slashes.
+    pattern = pattern.startsWith('/') ? pattern : `/${pattern}`; // Add a starting slash.
+  }
   return pattern;
 };
 

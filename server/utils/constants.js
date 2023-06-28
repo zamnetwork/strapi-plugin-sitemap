@@ -120,7 +120,7 @@ module.exports = {
         },
       ],
       slug: {
-        $neq: '',
+        $ne: '',
       },
       published_at: {
         $notNull: true,
@@ -162,4 +162,5 @@ module.exports = {
   },
   ext: '.xml',
   sitemapIndex: 'sitemap_index.xml',
+  singleType: 'singleType',
 };

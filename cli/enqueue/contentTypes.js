@@ -1,7 +1,7 @@
 const { pluginId, getConfigContentTypes, collectionNameToContentType } = require('../../server/utils');
 
 async function contentTypes() {
-  const { xsl, types, all, limit } = this.opts();
+  const { types, all } = this.opts();
   if (!all && !types) this.parent.error('Either use --all flag or pass a content types using --types');
   let entityTypes = {};
   if (all) entityTypes = await getConfigContentTypes();
@@ -15,7 +15,7 @@ async function contentTypes() {
       };
     }
   }
-  await strapi.plugin(pluginId).service('sitemap').enqueueContentTypes(xsl, entityTypes, limit);
+  await strapi.plugin(pluginId).service('sitemap').enqueueContentTypes(entityTypes);
 }
 
 module.exports = contentTypes;

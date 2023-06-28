@@ -35,9 +35,7 @@ function myParseInt(value, dummyPrevious) {
 
   program.command('content-types')
     .description('Enqueue sitemaps for content types')
-    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
     .addOption(new Option('-a, --all', 'Ingest all items'))
-    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
     .addOption(new Option('-t, --types <string...>', 'Content type(s) to generate').choices(choices))
     .action(contentTypes);
 
@@ -45,16 +43,12 @@ function myParseInt(value, dummyPrevious) {
     .description('Enqueue update of sitemap for a single entity')
     .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
     .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
-    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
-    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
     .action(update);
 
   program.command('add')
     .description('Enqueue adding a single entity to the sitemap')
     .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
     .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
-    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
-    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
     .action(add);
 
   await program.parseAsync();
