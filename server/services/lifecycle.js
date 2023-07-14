@@ -50,9 +50,12 @@ const subscribeLifecycleMethods = async (modelName) => {
 module.exports = () => ({
   async loadAllLifecycleMethods() {
     const settings = await getService('settings').getConfig();
-
+    const pluginConf = strapi.config.get('plugin.sitemap'); // this is read from plugins.ts
+    const serverConf = strapi.config.get('server');
+    const { isListener } = serverConf;
+    const { autoGenerate } = pluginConf;
     // Loop over configured contentTypes from store.
-    if (settings.contentTypes && strapi.config.get('plugin.sitemap.autoGenerate')) {
+    if (settings.contentTypes && autoGenerate && !isListener) {
       Object.keys(settings.contentTypes).map(async (contentType) => {
         await subscribeLifecycleMethods(contentType);
       });
