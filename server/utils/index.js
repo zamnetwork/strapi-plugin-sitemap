@@ -1,6 +1,7 @@
 'use strict';
 
 const { strapi: { name } } = require('../../package.json');
+const constants = require('./constants');
 
 const pluginId = name;
 
@@ -52,6 +53,13 @@ const getConfigContentTypes = async () => {
   return contentTypes;
 };
 
+const getConfigCustomEntries = async () => {
+  const config = await getService('settings').getConfig();
+  const { customEntries } = config;
+  const { customUrls } = constants;
+  return { [customUrls]: customEntries };
+};
+
 const buildChunkName = (collectionName, ext, counter = '') => {
   return `${collectionName}-${pluginId}${counter}${ext}`;
 };
@@ -75,5 +83,6 @@ module.exports = {
   pluginId,
   buildChunkName,
   getConfigContentTypes,
+  getConfigCustomEntries,
   collectionNameToContentType,
 };

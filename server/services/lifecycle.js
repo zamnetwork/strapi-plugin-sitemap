@@ -29,6 +29,7 @@ const subscribeLifecycleMethods = async (modelName) => {
         if (!sitemapExclude && publishedAt) {
           const limit = 1000;
           const xsl = 'xsl/sitemap.xsl';
+          strapi.log.info('Enqueuing sitemap update due to lifecycle hook trigger');
           sitemapService.enqueueUpdateContentType(id, contentType, xsl, limit);
         }
       },
