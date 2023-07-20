@@ -8,17 +8,18 @@ const { S3Client, PutObjectCommand, ListObjectsV2Command, HeadObjectCommand } = 
 const { pluginId } = require('../utils');
 
 function buildKey(path) {
-  const { providerOptions: { params: { Key } } } = strapi.config.get('plugin.upload');
-  return `${Key}/${pluginId}/${path}`;
+  const { s3: { Key } } = strapi.config.get('plugin.sitemap');
+  if (Key) return `${Key}/${pluginId}/${path}`;
+  else return `${pluginId}/${path}`;
 }
 
 function getUrl(key) {
-  const { providerOptions: { params: { Bucket } } } = strapi.config.get('plugin.upload');
+  const { s3: { Bucket } } = strapi.config.get('plugin.sitemap');
   return `https://${Bucket}.s3.amazonaws.com/${key}`;
 }
 
 function getLocation(key) {
-  const { providerOptions: { params: { Bucket } } } = strapi.config.get('plugin.upload');
+  const { s3: { Bucket } } = strapi.config.get('plugin.sitemap');
   return `https://${Bucket}.s3.amazonaws.com/${key}`;
 }
 
@@ -40,7 +41,8 @@ async function download(url, filepath) {
 
 async function upload(Body, Key) {
   console.log(`Uploading to S3`);
-  const { providerOptions: { params: { Bucket }, credentials, region } } = strapi.config.get('plugin.upload');
+  const { providerOptions: { credentials, region } } = strapi.config.get('plugin.upload');
+  const { s3: { Bucket } } = strapi.config.get('plugin.sitemap');
   const client = new S3Client({ credentials, region });
   const uploadParams = {
     ACL: 'public-read',
@@ -55,7 +57,8 @@ async function upload(Body, Key) {
 }
 
 async function listObjects() {
-  const { providerOptions: { params: { Bucket, Key }, credentials, region } } = strapi.config.get('plugin.upload');
+  const { providerOptions: { credentials, region } } = strapi.config.get('plugin.upload');
+  const { s3: { Bucket, Key } } = strapi.config.get('plugin.sitemap');
   console.log(`Listing Bucket ${Bucket}`);
   const client = new S3Client({ credentials, region });
   const listParams = {
@@ -71,7 +74,8 @@ async function listObjects() {
 
 async function exists(key) {
   console.log(`Checking if ${key} exists in S3`);
-  const { providerOptions: { params: { Bucket }, credentials, region } } = strapi.config.get('plugin.upload');
+  const { providerOptions: { credentials, region } } = strapi.config.get('plugin.upload');
+  const { s3: { Bucket } } = strapi.config.get('plugin.sitemap');
   const client = new S3Client({ credentials, region });
   const params = {
     Bucket,

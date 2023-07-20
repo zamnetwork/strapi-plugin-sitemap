@@ -1,6 +1,6 @@
 {
   "name": "@zam/strapi-plugin-sitemap",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Generate a highly customizable sitemap XML in Strapi CMS.",
   "strapi": {
     "displayName": "Sitemap",
