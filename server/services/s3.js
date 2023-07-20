@@ -61,11 +61,17 @@ async function listObjects() {
   const { s3: { Bucket, Key } } = strapi.config.get('plugin.sitemap');
   console.log(`Listing Bucket ${Bucket}`);
   const client = new S3Client({ credentials, region });
+  let Prefix = `${Key}/${pluginId}/`;
+  let StartAfter = `${Key}/${pluginId}/`;
+  if (!Key) {
+    Prefix = `${pluginId}/`;
+    StartAfter = `${pluginId}/`;
+  }
   const listParams = {
     Bucket,
-    Prefix: `${Key}/${pluginId}/`,
+    Prefix,
     Delimiter: '/',
-    StartAfter: `${Key}/${pluginId}/`,
+    StartAfter,
   };
   const command = new ListObjectsV2Command(listParams);
   const resp = await client.send(command);
