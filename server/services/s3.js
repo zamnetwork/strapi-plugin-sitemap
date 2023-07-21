@@ -49,6 +49,7 @@ async function upload(Body, Key) {
     Bucket,
     Key,
     Body,
+    ContentType: 'application/xml',
   };
   const command = new PutObjectCommand(uploadParams);
   await client.send(command);
