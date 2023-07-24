@@ -50,8 +50,9 @@ async function getContentTypesInS3() {
   const { Contents } = content;
   const xmls = {};
   if (Contents && Contents.length) {
-    const { providerOptions: { params: { Key }} } = strapi.config.get('plugin.upload');
-    const splitAt = `${Key}/${pluginId}/`;
+    let splitAt = `${pluginId}/`;
+    const { s3: { Key } } = strapi.config.get('plugin.sitemap');
+    if (Key) splitAt = `${Key}/${pluginId}/`;
     Contents.forEach((Content) => {
       const { Key: key, LastModified: lastModified } = Content;
       const splitz = key.split(splitAt);
