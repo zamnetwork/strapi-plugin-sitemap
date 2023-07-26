@@ -408,6 +408,7 @@ async function enqueueAddEntity(id, contentType) {
 }
 
 module.exports = () => ({
+  getEntityForXML,
   generateIndex,
   enqueueAddEntity,
   generateCustomUrls,
