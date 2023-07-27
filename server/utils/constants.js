@@ -99,6 +99,46 @@ module.exports = {
       ],
     },
   },
+  'api::homepage.homepage': {
+    fields: [
+      'updatedAt',
+    ],
+    populate: ['updatedAt'],
+    where: {
+      $or: [
+        {
+          sitemap_exclude: {
+            $null: true,
+          },
+        },
+        {
+          sitemap_exclude: {
+            $eq: false,
+          },
+        },
+      ],
+    },
+  },
+  'api::latest-posts-page.latest-posts-page': {
+    fields: [
+      'updatedAt',
+    ],
+    populate: ['updatedAt'],
+    where: {
+      $or: [
+        {
+          sitemap_exclude: {
+            $null: true,
+          },
+        },
+        {
+          sitemap_exclude: {
+            $eq: false,
+          },
+        },
+      ],
+    },
+  },
   'plugin::ffxiv.ffxiv-item': {
     fields: [
       'slug',
@@ -163,4 +203,5 @@ module.exports = {
   ext: '.xml',
   sitemapIndex: 'sitemap_index.xml',
   singleType: 'singleType',
+  customUrls: 'pages',
 };

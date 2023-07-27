@@ -2,9 +2,12 @@
 const path = require('path');
 const Strapi = require('@strapi/strapi');
 const { Command, Option, InvalidArgumentError } = require('commander');
-const { getConfigContentTypes } = require('../server/utils');
+const constants = require('../server/utils/constants');
+const { getConfigContentTypes, getConfigCustomEntries } = require('../server/utils');
 const { add, update, contentTypes } = require('./generate');
 const { version } = require('../package.json');
+
+const { customUrls } = constants;
 
 function myParseInt(value, dummyPrevious) {
   // parseInt takes a string and a radix
@@ -21,11 +24,17 @@ function myParseInt(value, dummyPrevious) {
   const distDir = path.join(appDir, distFolder);
   await Strapi({ distDir, appDir }).load();
 
-  const entityTypes = await getConfigContentTypes();
   const choices = [];
+  const entityTypes = await getConfigContentTypes();
   if (entityTypes) {
     Object.keys(entityTypes).forEach((entityType) => choices.push(strapi.contentTypes[entityType].collectionName));
   }
+  const customEntries = await getConfigCustomEntries();
+  if (customEntries) {
+    choices.push(customUrls);
+  }
+
+  const limitedChoices = choices.filter((item) => item !== customUrls);
 
   const program = new Command();
   program
@@ -42,15 +51,13 @@ function myParseInt(value, dummyPrevious) {
   program.command('update')
     .description('Update a single entity in sitemap')
     .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
-    .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
-    .addOption(new Option('-x, --xsl', 'Path to xsl file').default('xsl/sitemap.xsl'))
-    .addOption(new Option('-l, --limit <number>', 'Number of urls in an xml (Max 50000)').default(1000))
+    .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(limitedChoices).makeOptionMandatory())
     .action(update);
 
   program.command('add')
     .description('Add a single entity to sitemap')
     .requiredOption('-i, --id <number>', 'Id of the entity', myParseInt)
-    .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(choices).makeOptionMandatory())
+    .addOption(new Option('-t, --type <string>', 'Content type the id belongs to').choices(limitedChoices).makeOptionMandatory())
     .action(add);
 
   await program.parseAsync();
