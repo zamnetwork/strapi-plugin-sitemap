@@ -51,17 +51,21 @@ module.exports = () => ({
     const pluginConf = strapi.config.get('plugin.sitemap'); // this is read from plugins.ts
     const serverConf = strapi.config.get('server');
     const { isListener } = serverConf;
-    const { autoGenerate } = pluginConf;
+    const { autoGenerate, autoGenerateMap = {} } = pluginConf;
     // Loop over configured contentTypes from store.
     if (settings.contentTypes && autoGenerate && !isListener) {
       Object.keys(settings.contentTypes).map(async (contentType) => {
-        await subscribeLifecycleMethods(contentType);
+        if (autoGenerateMap[contentType]) await subscribeLifecycleMethods(contentType);
       });
     }
   },
 
   async loadLifecycleMethod(modelName) {
-    if (strapi.config.get('plugin.sitemap.autoGenerate')) {
+    const pluginConf = strapi.config.get('plugin.sitemap'); // this is read from plugins.ts
+    const serverConf = strapi.config.get('server');
+    const { isListener } = serverConf;
+    const { autoGenerate, autoGenerateMap = {} } = pluginConf;
+    if (autoGenerate && !isListener && autoGenerateMap[modelName]) {
       await subscribeLifecycleMethods(modelName);
     }
   },
