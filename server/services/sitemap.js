@@ -216,8 +216,9 @@ async function enqueueContentTypes(contentTypes) {
   }
 
   const service = 'sitemap';
+  const queue = 'sitemap';
   let func = 'generateContentType';
-  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func, queue);
   data = [];
   for (let x = 0; x < contentTypeNames.length; x += 1) {
     const contentType = contentTypeNames[x];
@@ -228,7 +229,7 @@ async function enqueueContentTypes(contentTypes) {
   }
   if (data.length) {
     func = 'generateCustomUrls';
-    await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+    await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func, queue);
   }
   data = [
     {
@@ -238,7 +239,7 @@ async function enqueueContentTypes(contentTypes) {
     },
   ];
   func = 'pollAndGenerateIndex';
-  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func, queue);
 }
 
 async function getS3LocationForId(id, contentType, limit) {
@@ -394,7 +395,8 @@ async function enqueueUpdateContentType(id, contentType) {
   }];
   const service = 'sitemap';
   const func = 'generateContentTypeOnUpdate';
-  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+  const queue = 'sitemap';
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func, queue);
 }
 
 async function enqueueAddEntity(id, contentType) {
@@ -404,7 +406,8 @@ async function enqueueAddEntity(id, contentType) {
   }];
   const service = 'sitemap';
   const func = 'generateContentTypeOnCreation';
-  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func);
+  const queue = 'sitemap';
+  await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func, queue);
 }
 
 module.exports = () => ({
