@@ -6,6 +6,7 @@ const settings = require('./settings');
 const pattern = require('./pattern');
 const sitemap = require('./sitemap');
 const lifecycle = require('./lifecycle');
+const newsSitemap = require('./newsSitemap');
 const sitemapEntityContentTypeLinks = require('./sitemapEntityContentTypeLinks');
 
 module.exports = {
@@ -15,5 +16,6 @@ module.exports = {
   settings,
   pattern,
   lifecycle,
+  'news-sitemap': newsSitemap,
   'sitemap-entity-content-type-link': sitemapEntityContentTypeLinks,
 };

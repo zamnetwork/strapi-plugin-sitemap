@@ -412,6 +412,7 @@ module.exports = () => ({
   enqueueContentTypes,
   generateContentTypes,
   pollAndGenerateIndex,
+  entriesToSitemapStream,
   enqueueUpdateContentType,
   generateContentTypeOnUpdate,
   generateContentTypeOnCreation,
