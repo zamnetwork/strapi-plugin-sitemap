@@ -1,0 +1,33 @@
+
+{
+  "kind": "collectionType",
+  "collectionName": "sitemap_entity_content_type_links",
+  "info": {
+    "singularName": "sitemap-entity-content-type-link",
+    "pluralName": "sitemap-entity-content-type-links",
+    "displayName": "Sitemap Entity Content Type Links",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "entityId": {
+      "type": "integer"
+    },
+    "contentType": {
+      "type": "string"
+    },
+    "chunkName": {
+      "type": "string"
+    }
+  }
+}

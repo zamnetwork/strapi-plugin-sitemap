@@ -6,6 +6,7 @@ const settings = require('./settings');
 const pattern = require('./pattern');
 const sitemap = require('./sitemap');
 const lifecycle = require('./lifecycle');
+const sitemapEntityContentTypeLinks = require('./sitemapEntityContentTypeLinks');
 
 module.exports = {
   s3,
@@ -14,4 +15,5 @@ module.exports = {
   settings,
   pattern,
   lifecycle,
+  'sitemap-entity-content-type-link': sitemapEntityContentTypeLinks,
 };

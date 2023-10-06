@@ -1,6 +1,7 @@
 module.exports = {
   'api::post.post': {
     fields: [
+      'id',
       'slug',
       'updatedAt',
       'publishedAt',
@@ -34,6 +35,7 @@ module.exports = {
   },
   'api::game.game': {
     fields: [
+      'id',
       'slug',
       'updatedAt',
     ],
@@ -55,6 +57,7 @@ module.exports = {
   },
   'api::category.category': {
     fields: [
+      'id',
       'slug',
       'updatedAt',
     ],
@@ -80,6 +83,7 @@ module.exports = {
   },
   'api::tag.tag': {
     fields: [
+      'id',
       'slug',
       'updatedAt',
     ],
@@ -101,6 +105,7 @@ module.exports = {
   },
   'api::homepage.homepage': {
     fields: [
+      'id',
       'updatedAt',
     ],
     populate: ['updatedAt'],
@@ -121,6 +126,7 @@ module.exports = {
   },
   'api::latest-posts-page.latest-posts-page': {
     fields: [
+      'id',
       'updatedAt',
     ],
     populate: ['updatedAt'],
@@ -141,6 +147,7 @@ module.exports = {
   },
   'plugin::ffxiv.ffxiv-item': {
     fields: [
+      'id',
       'slug',
       'updatedAt',
       'publishedAt',
@@ -169,6 +176,7 @@ module.exports = {
   },
   'plugin::destiny-two.d2-item': {
     fields: [
+      'id',
       'slug',
       'hash',
       'updatedAt',

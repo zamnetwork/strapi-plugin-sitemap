@@ -1,7 +1,6 @@
 'use strict';
 
 const { createReadStream } = require('fs');
-const { chunk } = require('lodash');
 const { SitemapIndexStream, SitemapStream, parseSitemap, streamToPromise } = require('sitemap');
 const { pluginId, getService, buildChunkName, delay, cleanUrl } = require('../utils');
 const constants = require('../utils/constants');
@@ -90,14 +89,19 @@ async function generateContentType({ xslUrl, hostname, contentType, pattern, cou
     });
   }
   const entries = [];
+  const dbLinks = [];
   entities.forEach((entity) => {
-    const { updatedAt: lastmod } = entity;
+    const { id: entityId, updatedAt: lastmod } = entity;
     const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
     let url = `${hostname}${path}`;
     url = cleanUrl(url);
     entries.push({
       url,
       lastmod,
+    });
+    dbLinks.push({
+      entityId,
+      contentType,
     });
   });
   const data = await entriesToSitemapStream(entries, hostname, xslUrl);
@@ -106,6 +110,8 @@ async function generateContentType({ xslUrl, hostname, contentType, pattern, cou
   else chunkName = buildChunkName(collectionName, ext);
   const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
   const location = await strapi.plugin(pluginId).service('s3').upload(data, key);
+  dbLinks.forEach((link) => link['chunkName'] = chunkName);
+  await strapi.plugin(pluginId).service('sitemap-entity-content-type-link').addOrUpdateMany(dbLinks);
   console.log(`Uploaded sitemap to ${location}`);
   return chunkName;
 }
@@ -242,37 +248,24 @@ async function enqueueContentTypes(contentTypes) {
   await strapi.plugin('sqs').service('sqs').enqueue(data, pluginId, service, func, queue);
 }
 
-async function getS3LocationForId(id, contentType, limit) {
-  const { ext } = constants;
-  const { where: filters } = constants[contentType];
-  const fields = 'id';
-  const sort = {
-    id: 'ASC',
+async function getS3LocationForId(entityId, contentType) {
+  const uid = `plugin::${pluginId}.sitemap-entity-content-type-link`;
+  const select = 'chunkName';
+  const where = {
+    entityId,
+    contentType,
   };
-  const entities = await strapi.entityService.findMany(contentType, {
-    filters,
-    fields,
-    sort,
+  const entry = await strapi.db.query(uid).findOne({
+    select,
+    where,
   });
-  const ids = [];
-  entities.forEach((entity) => ids.push(entity.id));
-  const chunks = chunk(ids, limit);
-  let counter = null;
-  for (let x = 0; x < chunks.length; x += 1) {
-    if (chunks[x].includes(id)) {
-      counter = x;
-      break;
-    }
-  }
   let location = '';
   let chunkName = '';
-  if (counter !== null) {
-    const { collectionName } = strapi.contentTypes[contentType];
-    if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
-    else chunkName = buildChunkName(collectionName, ext);
+  if (entry) {
+    chunkName = entry.chunkName;
     const key = strapi.plugin(pluginId).service('s3').buildKey(chunkName);
     location = strapi.plugin(pluginId).service('s3').getLocation(key);
-  } else console.error('Could not find id in entities');
+  } else console.error('Could not find id in entity content type links');
   return { location, chunkName };
 }
 
@@ -307,7 +300,7 @@ async function generateContentTypeOnUpdate({ id, contentType }) {
   const pluginConf = strapi.config.get('plugin.sitemap');
   const { hostname } = config;
   const { xsl, limit } = pluginConf;
-  const { location, chunkName } = await getS3LocationForId(id, contentType, limit);
+  const { location, chunkName } = await getS3LocationForId(id, contentType);
   if (!location) throw new Error('Could not find xml location');
   const entries = await validateXMLContainsId(id, contentType, location, chunkName);
   if (entries) {
