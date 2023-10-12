@@ -9,7 +9,9 @@ module.exports = {
     ],
     populate: {
       categories: {
-        populate: ['parents'],
+        fields: ['slug'],
+      },
+      games: {
         fields: ['slug'],
       },
     },
@@ -213,4 +215,5 @@ module.exports = {
   sitemapIndex: 'sitemap_index.xml',
   singleType: 'singleType',
   customUrls: 'pages',
+  uncategorized: 'uncategorized',
 };
