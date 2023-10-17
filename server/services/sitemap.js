@@ -356,6 +356,11 @@ async function getUrlForEntity(entity, contentType) {
   };
 }
 
+function getUncategorizedGameSlug() {
+  const { uncategorized } = constants;
+  return uncategorized;
+}
+
 async function getEntityForXML(id, contentType) {
   const { fields, populate } = constants[contentType];
   const entity = await strapi.entityService.findOne(contentType, id, {
@@ -422,6 +427,7 @@ module.exports = () => ({
   generateContentTypes,
   pollAndGenerateIndex,
   entriesToSitemapStream,
+  getUncategorizedGameSlug,
   enqueueUpdateContentType,
   generateContentTypeOnUpdate,
   generateContentTypeOnCreation,

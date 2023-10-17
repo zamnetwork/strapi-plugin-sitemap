@@ -215,5 +215,5 @@ module.exports = {
   sitemapIndex: 'sitemap_index.xml',
   singleType: 'singleType',
   customUrls: 'pages',
-  uncategorized: 'uncategorized',
+  uncategorized: 'legacy',
 };
