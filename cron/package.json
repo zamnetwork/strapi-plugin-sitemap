@@ -1,0 +1,25 @@
+{
+  "name": "news-sitemap-cron",
+  "version": "1.0.0",
+  "description": "Script to enqueue news sitemap creation.",
+  "dependencies": {
+    "@zam/service-utils": "^2.8.2",
+    "axios": "^1.4.0",
+    "lodash.merge": "^4.6.2"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "bugs": {
+    "url": "https://github.com/zamnetwork/strapi-plugin-sitemap/issues"
+  },
+  "homepage": "https://github.com/zamnetwork/strapi-plugin-sitemap#readme",
+  "engines": {
+    "node": ">=10.0.0",
+    "npm": ">=6.0.0"
+  },
+  "license": "MIT"
+}

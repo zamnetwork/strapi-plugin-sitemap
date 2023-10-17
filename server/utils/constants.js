@@ -3,6 +3,7 @@ module.exports = {
     fields: [
       'id',
       'slug',
+      'title',
       'updatedAt',
       'publishedAt',
     ],
@@ -28,7 +29,7 @@ module.exports = {
       slug: {
         $notNull: true,
       },
-      published_at: {
+      publishedAt: {
         $notNull: true,
       },
     },
@@ -201,7 +202,7 @@ module.exports = {
           $ne: '',
         },
         },
-        { published_at: {
+        { publishedAt: {
           $notNull: true,
         },
       },

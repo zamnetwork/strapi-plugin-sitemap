@@ -4,7 +4,7 @@ const Strapi = require('@strapi/strapi');
 const { Command, Option, InvalidArgumentError } = require('commander');
 const constants = require('../server/utils/constants');
 const { getConfigContentTypes, getConfigCustomEntries } = require('../server/utils');
-const { add, update, contentTypes } = require('./enqueue');
+const { add, update, contentTypes, news } = require('./enqueue');
 const { version } = require('../package.json');
 
 const { customUrls } = constants;
@@ -47,6 +47,12 @@ function myParseInt(value, dummyPrevious) {
     .addOption(new Option('-a, --all', 'Ingest all items'))
     .addOption(new Option('-t, --types <string...>', 'Content type(s) to generate').choices(choices))
     .action(contentTypes);
+
+  program.command('news')
+    .description('Enqueue news sitemap generation')
+    .addOption(new Option('-m, --metric <string>', 'Time metric, days, months, weeks').default('days'))
+    .addOption(new Option('-v, --value <number>', 'Time metric value').default(2))
+    .action(news);
 
   program.command('update')
     .description('Enqueue update of sitemap for a single entity')
