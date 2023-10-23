@@ -62,7 +62,7 @@ async function getContentTypesInS3() {
   return xmls;
 }
 
-async function generateContentType({ xslUrl, hostname, contentType, pattern, counter, filters, limit }) {
+async function generateContentType({ xslUrl, hostname, contentType, counter, filters, limit }) {
   const { collectionName, kind } = strapi.contentTypes[contentType];
   const { fields, populate } = constants[contentType];
   const { ext, singleType } = constants;
@@ -90,11 +90,10 @@ async function generateContentType({ xslUrl, hostname, contentType, pattern, cou
   }
   const entries = [];
   const dbLinks = [];
-  entities.forEach((entity) => {
-    const { id: entityId, updatedAt: lastmod } = entity;
-    const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
-    let url = `${hostname}${path}`;
-    url = cleanUrl(url);
+  for (let x = 0; x < entities.length; x += 1) {
+    const entity = entities[x];
+    const { id: entityId } = entity;
+    const { url, lastmod } = await getUrlForEntity(entity, contentType);
     entries.push({
       url,
       lastmod,
@@ -103,7 +102,7 @@ async function generateContentType({ xslUrl, hostname, contentType, pattern, cou
       entityId,
       contentType,
     });
-  });
+  }
   const data = await entriesToSitemapStream(entries, hostname, xslUrl);
   let chunkName = '';
   if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
@@ -174,10 +173,9 @@ async function generateContentTypes(contentTypes) {
       toPoll[chunkName] = s3Content[chunkName] || null;
     } else {
       const { where } = constants[contentType];
-      const { pattern } = config.contentTypes[contentType]['languages']['und'];
       const count = await strapi.query(contentType).count({ where });
       for (let counter = 0; counter < (count / limit); counter++) {
-        const chunkName = await generateContentType({ xslUrl, hostname, contentType, pattern, counter, filters: where, limit });
+        const chunkName = await generateContentType({ xslUrl, hostname, contentType, counter, filters: where, limit });
         toPoll[chunkName] = s3Content[chunkName] || null;
       }
     }
@@ -209,14 +207,13 @@ async function enqueueContentTypes(contentTypes) {
     const contentType = contentTypeNames[x];
     if (contentType === customUrls) continue;
     const { where } = constants[contentType];
-    const { pattern } = config.contentTypes[contentType]['languages']['und'];
     const count = await strapi.query(contentType).count({ where });
     const { collectionName } = strapi.contentTypes[contentType];
     for (let counter = 0; counter < (count / limit); counter++) {
       let chunkName = '';
       if (counter) chunkName = buildChunkName(collectionName, ext, counter + 1);
       else chunkName = buildChunkName(collectionName, ext);
-      data.push({ xslUrl, hostname, contentType, pattern, counter, filters: where, limit });
+      data.push({ xslUrl, hostname, contentType, counter, filters: where, limit });
       toPoll[chunkName] = s3Content[chunkName] || null;
     }
   }
@@ -271,17 +268,12 @@ async function getS3LocationForId(entityId, contentType) {
 
 async function validateXMLContainsId(id, contentType, location, chunkName) {
   let valid = false;
-  const config = await getService('settings').getConfig();
   const { fields, populate } = constants[contentType];
   const entity = await strapi.entityService.findOne(contentType, id, {
     fields,
     populate,
   });
-  const { hostname } = config;
-  const { pattern } = config.contentTypes[contentType]['languages']['und'];
-  const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
-  let url = `${hostname}${path}`;
-  url = cleanUrl(url);
+  const { url } = await getUrlForEntity(entity, contentType);
   const filepath = `/tmp/${chunkName}`;
   await strapi.plugin(pluginId).service('s3').download(location, filepath);
   const entries = await parseSitemap(createReadStream(filepath));
@@ -342,13 +334,17 @@ async function appendXML(id, contentType, location, chunkName) {
   return entries;
 }
 
-async function getEntityForXML(id, contentType) {
+async function getUrlForEntity(entity, contentType) {
+  const { uncategorized } = constants;
   const config = await getService('settings').getConfig();
-  const { fields, populate } = constants[contentType];
-  const entity = await strapi.entityService.findOne(contentType, id, {
-    fields,
-    populate,
-  });
+  // for posts with no game assinged, set them as uncategorized
+  if (contentType === 'api::post.post' && (!entity.games || !entity.games.length)) {
+    entity.games = [
+      {
+        slug: uncategorized,
+      },
+    ];
+  }
   const { hostname } = config;
   const { pattern } = config.contentTypes[contentType]['languages']['und'];
   const path = strapi.plugins.sitemap.services.pattern.resolvePattern(pattern, entity);
@@ -357,6 +353,24 @@ async function getEntityForXML(id, contentType) {
   return {
     url,
     lastmod: entity.updatedAt,
+  };
+}
+
+function getUncategorizedGameSlug() {
+  const { uncategorized } = constants;
+  return uncategorized;
+}
+
+async function getEntityForXML(id, contentType) {
+  const { fields, populate } = constants[contentType];
+  const entity = await strapi.entityService.findOne(contentType, id, {
+    fields,
+    populate,
+  });
+  const { url, lastmod } = await getUrlForEntity(entity, contentType);
+  return {
+    url,
+    lastmod,
   };
 }
 
@@ -413,6 +427,7 @@ module.exports = () => ({
   generateContentTypes,
   pollAndGenerateIndex,
   entriesToSitemapStream,
+  getUncategorizedGameSlug,
   enqueueUpdateContentType,
   generateContentTypeOnUpdate,
   generateContentTypeOnCreation,
