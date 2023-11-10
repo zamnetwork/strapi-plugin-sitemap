@@ -292,9 +292,9 @@ async function generateContentTypeOnUpdate({ id, contentType }) {
   const pluginConf = strapi.config.get('plugin.sitemap');
   const { hostname } = config;
   const { xsl, limit } = pluginConf;
+  let entries = null;
   const { location, chunkName } = await getS3LocationForId(id, contentType);
-  if (!location) throw new Error('Could not find xml location');
-  const entries = await validateXMLContainsId(id, contentType, location, chunkName);
+  if (location) entries = await validateXMLContainsId(id, contentType, location, chunkName);
   if (entries) {
     const xslKey = strapi.plugin(pluginId).service('s3').buildKey(xsl);
     const xslUrl = strapi.plugin(pluginId).service('s3').getUrl(xslKey);
@@ -337,13 +337,15 @@ async function appendXML(id, contentType, location, chunkName) {
 async function getUrlForEntity(entity, contentType) {
   const { uncategorized } = constants;
   const config = await getService('settings').getConfig();
-  // for posts with no game assinged, set them as uncategorized
+  // for posts with no game assinged, set them as uncategorized and remove associated categories
+  // so the url ends up being /legacy/$SLUG
   if (contentType === 'api::post.post' && (!entity.games || !entity.games.length)) {
     entity.games = [
       {
         slug: uncategorized,
       },
     ];
+    entity.categories = [];
   }
   const { hostname } = config;
   const { pattern } = config.contentTypes[contentType]['languages']['und'];
