@@ -14,13 +14,11 @@ function buildKey(path) {
 }
 
 function getUrl(key) {
-  const { s3: { Bucket } } = strapi.config.get('plugin.sitemap');
-  return `https://${Bucket}.s3.amazonaws.com/${key}`;
+  return `https://www.fanbyte.com/${key}`;
 }
 
 function getLocation(key) {
-  const { s3: { Bucket } } = strapi.config.get('plugin.sitemap');
-  return `https://${Bucket}.s3.amazonaws.com/${key}`;
+  return `https://www.fanbyte.com/${key}`;
 }
 
 async function download(url, filepath) {
