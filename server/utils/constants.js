@@ -200,10 +200,9 @@ module.exports = {
         },
       ],
       $and: [
-        { slug: {
-          $ne: '',
-        },
-        },
+        { slug: {$ne: '',},},
+        // FNBT-574 This will exclude items that are not displayed on site
+        { defaultDamageTypeName: {$ne: '',},},
         { publishedAt: {
           $notNull: true,
         },
